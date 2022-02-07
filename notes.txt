@@ -1,0 +1,453 @@
+Unit Testing with xUnit and Moq (46:05)
+https://www.youtube.com/watch?v=kInFI2x7yLY
+
+There was bugs in the code from the video so I rewrote the below notes that work.
+
+
+Run Visual Studio 2019
+Create Project
+Console Application C# Core
+Click 'Next'
+Name: UnitTestDemo
+Click 'Next'
+Click 'Create'
+
+Goto Solution Explorer
+Right mouse click on 'UnitTestDemo' and select 'Add' - 'New Item' 
+Name: IDataSource
+Click 'Add'
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace UnitTestDemo
+{
+    public interface IDataSource
+    {
+        public User GetUser(Guid id);
+    }
+}
+
+
+
+Goto Solution Explorer
+Right mouse click on 'UnitTestDemo' and select 'Add' - 'Class'
+Name: User
+Click 'Add'
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace UnitTestDemo
+{
+    public class User
+    {
+        private int _age;
+
+        public User(int v)
+        {
+            this._age = v;
+        }
+
+        public int Age
+        {
+
+            get { return _age; }
+
+
+            set
+            {
+                _age = value;
+            }
+
+        }
+
+
+    }
+
+}
+
+
+
+
+Goto Solution Explorer
+Right mouse click on 'UnitTestDemo' and select 'Add' - 'Class'
+Name: SampleClass1D
+Click 'Add'
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+// 10:00: using interface : it has removed the implementation details from this class.
+// Now anything that implements this interface can be used with this class and
+// UserCanDrink method will call that interface and get its data back. It does not
+// care where the data from. 
+
+// 11:23 create new project,
+
+
+namespace UnitTestDemo
+{
+    public class SampleClass1D
+    {
+
+        private readonly IDataSource _dataSource;
+
+        public SampleClass1D(IDataSource dataSource)
+        {
+            _dataSource = dataSource;
+        }
+
+        public bool UserCanDrink(Guid id)
+        {
+            User user = _dataSource.GetUser(id);
+            return user.Age >= 21;
+        }
+    }
+}
+
+
+
+Rebuild Solution
+-> 1 succeeded
+
+
+
+Goto Solution Explorer
+Right mouse click on Solution and select 'Add' - 'New Project'
+Select 'xUnit Test Project'
+Name: UnitTestDemo.Tests
+Click 'Next'
+Click 'Create'
+
+
+Goto Solution Explorer
+Right mouse click on 'UnitTestDemo.Tests' and select 'Add' - 'Add Project Reference'
+Click on checkbox 'UnitTestDemo'
+Click 'OK'
+
+
+
+
+
+
+Delete 'UnitTest1.cs'
+
+Goto Solution Explorer
+Right mouse click on 'UnitTestDemo.Tests' and select 'Add' - 'Class'
+Name: 'SampleClass1DTests.cs' (NOTE: this name can be anything)
+
+It creates 'SampleClass1DTests.cs'
+
+
+Goto Solution Explorer
+Select 'UnitTestDemo.Tests'
+
+Goto Manage NuGet Packages.
+Click Browse tab
+Type 'Moq'
+Select 'Moq'
+Click 'Install'
+
+
+
+Goto 'SampleClass1DTests.cs'
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+//
+using Xunit;
+using Moq;
+
+namespace UnitTestDemo.Tests
+{
+    public class SampleClass1DTests
+    {
+
+        [Fact]
+        public void UserCanDrink_UserIsOfAge_ReturnsTrue()
+        {
+            // Arrange
+            var dataSource = new Mock<IDataSource>();
+            var user = new User(23);  // we have configured a user that is older than 21
+
+            // we want to use this method, 'GetUser'. Passing any Guid.
+            // When GetUser method is called it will return user ie. 23
+            // 
+            dataSource
+                .Setup(m => m.GetUser(It.IsAny<Guid>()))
+                .Returns(user);
+
+            var classThatWeAreActuallyTesting = new SampleClass1D(dataSource.Object);
+
+
+            // Act
+            var isOldEnoughToDrink = classThatWeAreActuallyTesting.UserCanDrink(Guid.NewGuid());
+
+
+            // Assert
+            Assert.True(isOldEnoughToDrink);
+
+        }
+
+
+    }
+}
+
+
+----> Run Test it should pass
+
+
+Change 23 to 19
+
+----> Run Test it should fail
+
+Change 19 to 23
+
+----> Run Test it should pass
+
+
+
+So that's one unit.
+
+I said earlier that you can look at a method as a single unit
+but in reality there could be multiple units in there.
+
+Look at what I mean by looking at 'UserCanDrinkMethod' in 'SampleClass1D.cs'.
+
+There are 2 possible outcomes : true or false.
+
+To me there are 2 scenarios here for us to test to definitively say that
+this method is behaving the way we intended.
+
+Our intention was for it to accurately tell us if the user is underage 
+or if the user is of age. So our unit test does not satisfy that.
+
+Our unit test only covers the scenario when it's actually when the user
+is old enough so we are going to need another test.
+
+---> Added method : public void UserCanDrink_UserIsNotOfAge_ReturnsFalse()
+
+We can actually say that we have this one method here and we want to make
+sure it is behaving as designed so we can run all tests and say that method
+is doing exactly what we wanted it to do.
+
+
+30:10
+One thing we can do is that it's actually getting its data from the data source.
+
+--> Implemented in public void UserCanDrink_CallsDataSource()
+
+If you goto method 'UserCanDrink' in 'SampleClass1D.cs'
+and comment lines :
+
+            //User user = _dataSource.GetUser(id);
+            //return user.Age >= 21;
+
+and just return true; // this will not call data source
+
+
+Run test, 'UserCanDrink_CallsDataSource'
+
+--> it will fail
+
+
+Now revert code back in 'SampleClass1D.cs'
+
+--> Delete return true	
+
+--> Uncomment lines as below:
+            User user = _dataSource.GetUser(id);
+            return user.Age >= 21;
+
+
+
+35:01
+
+'UserCanDrink' method in 'SampleClass1D.cs' is 2 units.
+
+Ideally what you want is a method does one thing so testing is easier.
+It follows SOLID principle.
+
+Everything in a class should only do things that are related to this class.
+YOu might even go as far as to say that everything in this class should
+be here to support functionality within 'SampleClass1D' class.
+
+Going further, each method should also be very cohesive in that each
+method should do one thing really well. It should be focused.
+
+'UserCanDrink' method, it figures out whether the user is old enough to drink.
+That's it. It does not update a record somewhere or notify somebody that you just
+checked it. It just does, user can drink and this is the meat of it.
+
+
+Imagine 'UserCanDrink' method in SampleClass1D.cs had 5 other different steps
+in here in order to get that user. Each one of these steps should be broken out
+into it's own method so that you can definitively say that each one of these
+methods is performing the way that you intended it to perform. If those
+methods should be public, you can write a unit test for that they are coming out
+correctly. So instead of writing one unit test that tests are like 50,0000 possible
+outcomes of the single method, you can write a unit test that tests one nice cohesive
+method and making sure it's behaving the way intended. 
+
+
+38:45
+There are some gotchas that you will eventually going to run into like for instance
+if you have private methods then how do we test the private methods.
+That is really preference. I would say you don't test private methods because they
+do not necessarily matter. What we want to test are the public methods to make sure
+that they are performing how we want them to perform.
+
+
+39:14
+There are other complications with testing abstract classes. You can either implement
+them with a fake and then test them out or you can let those tests be run through their
+child classes. I'm personally lazy so I say whatever child class, I will run the 
+test on one of those child classes and that will give me the test coverage that I need.
+
+42:42
+These facts are actually a feature of xUnit. These facts are basically simple.
+All this says is that there is a single assertion and if it's true then the tests pass.
+
+You can actually take this a step further and do theories so can actually tn the same
+test multiple times with different parameters to make sure that it is working.
+
+
+In 'SampleClass1DTests.cs', add the following :
+
+        [Theory]
+        [InlineData(23)]
+        [InlineData(31)]
+        [InlineData(65)]
+        [InlineData(20)]
+
+
+        public void UserCanDrink_UserIsOfAge_ReturnsTrue_MultipleTest(int age)
+        {
+            // Arrange
+            var dataSource = new Mock<IDataSource>();
+            var user = new User(age);  // we have configured a user that is older than 21
+
+            // we want to use this method, 'GetUser'. Passing any Guid.
+            // When GetUser method is called it will return user ie. 23
+            // 
+            dataSource
+                .Setup(m => m.GetUser(It.IsAny<Guid>()))
+                .Returns(user);
+
+            var classThatWeAreActuallyTesting = new SampleClass1D(dataSource.Object);
+
+
+            // Act
+            var isOldEnoughToDrink = classThatWeAreActuallyTesting.UserCanDrink(Guid.NewGuid());
+
+
+            // Assert
+            Assert.True(isOldEnoughToDrink);
+
+
+
+43:41 
+We got some repeated code over here, you should really treat your unit tests as 
+if they are production code so you should use the same practices.  
+In that case, we would probably create a method for :
+
+            var dataSource = new Mock<IDataSource>();
+            var user = new User(age);  // we have configured a user that is older than 21
+
+            // we want to use this method, 'GetUser'. Passing any Guid.
+            // When GetUser method is called it will return user ie. 23
+            // 
+            dataSource
+                .Setup(m => m.GetUser(It.IsAny<Guid>()))
+                .Returns(user);
+
+
+that build this setup for us so that we do not have to keep repeating it.
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+33:47
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
